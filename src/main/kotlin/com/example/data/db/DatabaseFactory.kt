@@ -21,8 +21,7 @@ object DatabaseFactory {
         Database.connect(dataSource)
 
         transaction {
-            // Crea las tablas si no existen, sin eliminar las que ya están
-            SchemaUtils.createMissingTablesAndColumns(UsersTable, ItemsTable)
+            SchemaUtils.createMissingTablesAndColumns(UsersTable, ItemsTable, SessionsTable)
         }
     }
 }

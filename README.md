@@ -1,10 +1,6 @@
-Aquí tienes un ejemplo completo de un README en formato Markdown para documentar tu proyecto:
-
----
-
 # Proyecto Ktor Sample
 
-Este proyecto es un ejemplo de una API REST implementada en Kotlin con Ktor, Exposed y MariaDB, siguiendo principios de Clean Architecture. La aplicación permite la gestión de usuarios y de ítems (cards). Los usuarios se registran e inician sesión con su correo y contraseña (que se cifra con BCrypt), y se pueden listar, actualizar y eliminar. Los ítems (cards) contienen título, descripción, peso e imagen en formato Base64 y se asocian a un usuario.
+Este proyecto es un ejemplo de una API REST implementada en Kotlin utilizando Ktor, Exposed y MariaDB, siguiendo principios de Clean Architecture. La aplicación permite la gestión de usuarios y de ítems (cards) y ahora incorpora autenticación basada en JWT con gestión de sesiones. Cada vez que un usuario inicia sesión se genera un token único (JWT) que se almacena en una tabla de sesiones; este token se verifica en cada endpoint protegido y se invalida en caso de logout o si se reemplaza en un nuevo login.
 
 ## Características
 
@@ -12,6 +8,8 @@ Este proyecto es un ejemplo de una API REST implementada en Kotlin con Ktor, Exp
     - Registro e inicio de sesión usando correo electrónico y contraseña.
     - Listado, actualización y eliminación de usuarios.
     - Cifrado de contraseñas con BCrypt.
+    - Autenticación mediante JWT: cada login genera un token único que se almacena en una tabla de sesiones.
+    - Logout: se elimina la sesión activa para invalidar el token.
 
 - **Gestión de Ítems (Cards)**
     - Creación, listado, obtención, actualización y eliminación de ítems.
@@ -24,13 +22,13 @@ Este proyecto es un ejemplo de una API REST implementada en Kotlin con Ktor, Exp
 
 - **Persistencia en MariaDB**
     - Se utiliza Exposed junto con HikariCP para gestionar la base de datos.
-    - La base de datos se configura de modo que los datos existentes se conservan al reiniciar la aplicación.
+    - Se usa `createMissingTablesAndColumns` para crear tablas o columnas que falten sin perder los datos existentes.
 
 - **Arquitectura Clean**
     - El proyecto está organizado en capas:
         - **Dominio:** Modelos, repositorios y casos de uso.
-        - **Datos:** Implementaciones de los repositorios y definición de tablas.
-        - **Presentación:** Rutas de Ktor para exponer la API.
+        - **Datos:** Implementaciones de repositorios y definición de tablas (incluye la nueva tabla `sessions`).
+        - **Presentación:** Rutas de Ktor para exponer la API, integradas con JWT para proteger endpoints.
 
 ## Estructura del Proyecto
 
@@ -43,22 +41,26 @@ mi-proyecto/
         └── kotlin
             └── com
                 └── example
-                    ├── Application.kt                # Punto de entrada de la aplicación
+                    ├── Application.kt                # Punto de entrada de la aplicación y configuración JWT
                     ├── data
                     │   ├── db
                     │   │   ├── DatabaseFactory.kt      # Configuración de la base de datos
                     │   │   ├── UsersTable.kt           # Definición de la tabla de usuarios
-                    │   │   └── ItemsTable.kt           # Definición de la tabla de ítems
+                    │   │   ├── ItemsTable.kt           # Definición de la tabla de ítems
+                    │   │   └── SessionsTable.kt        # Definición de la tabla de sesiones
                     │   └── repositories
                     │       ├── UserRepositoryImpl.kt     # Implementación del repositorio de usuarios
-                    │       └── ItemRepositoryImpl.kt     # Implementación del repositorio de ítems
+                    │       ├── ItemRepositoryImpl.kt     # Implementación del repositorio de ítems
+                    │       └── SessionRepositoryImpl.kt  # Implementación del repositorio de sesiones
                     ├── domain
                     │   ├── models
                     │   │   ├── User.kt                 # Modelo de usuario
-                    │   │   └── Item.kt                 # Modelo de ítem
+                    │   │   ├── Item.kt                 # Modelo de ítem
+                    │   │   └── Session.kt              # Modelo de sesión
                     │   ├── repositories
                     │   │   ├── UserRepository.kt       # Interfaz del repositorio de usuarios
-                    │   │   └── ItemRepository.kt       # Interfaz del repositorio de ítems
+                    │   │   ├── ItemRepository.kt       # Interfaz del repositorio de ítems
+                    │   │   └── SessionRepository.kt    # Interfaz del repositorio de sesiones
                     │   └── usecases
                     │       ├── RegisterUserUseCase.kt  # Caso de uso para registrar usuarios
                     │       ├── LoginUserUseCase.kt     # Caso de uso para iniciar sesión
@@ -71,7 +73,7 @@ mi-proyecto/
                     │       └── DeleteItemUseCase.kt    # Caso de uso para eliminar ítems
                     └── presentation
                         └── routes
-                            ├── AuthRoutes.kt         # Endpoints de autenticación (registro y login)
+                            ├── AuthRoutes.kt         # Endpoints de autenticación (registro, login y logout)
                             ├── UserRoutes.kt         # Endpoints para listar, actualizar y eliminar usuarios
                             └── ItemRoutes.kt         # Endpoints para el CRUD de ítems (cards)
 ```
@@ -84,17 +86,50 @@ mi-proyecto/
 - **Gradle**
 - Opcionalmente, **Docker** y **docker-compose** para levantar contenedores de MariaDB y phpMyAdmin
 
+### Dependencias Clave (en build.gradle.kts)
+
+```kotlin
+dependencies {
+    // Ktor core y Netty
+    implementation("io.ktor:ktor-server-core:2.3.0")
+    implementation("io.ktor:ktor-server-netty:2.3.0")
+    // Plugin de content negotiation
+    implementation("io.ktor:ktor-server-content-negotiation:2.3.0")
+    // Serialización JSON con kotlinx
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.0")
+    // Logging
+    implementation("ch.qos.logback:logback-classic:1.2.11")
+    // Exposed y MariaDB
+    implementation("org.jetbrains.exposed:exposed-core:0.41.1")
+    implementation("org.jetbrains.exposed:exposed-dao:0.41.1")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.41.1")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.0.7")
+    // HikariCP para conexión
+    implementation("com.zaxxer:HikariCP:5.0.1")
+    // Test
+    testImplementation("io.ktor:ktor-server-tests:2.3.0")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.8.0")
+    // BCrypt
+    implementation("org.mindrot:jbcrypt:0.4")
+    //Ktor Authentication y JWT
+    implementation("io.ktor:ktor-server-auth:2.3.0")
+    implementation("io.ktor:ktor-server-auth-jwt:2.3.0")
+    implementation("com.auth0:java-jwt:3.18.2")
+}
+
+```
+
 ## Configuración de la Base de Datos
 
-La aplicación utiliza Exposed con HikariCP para conectarse a MariaDB. Los parámetros por defecto son:
+La aplicación utiliza Exposed y HikariCP para conectarse a MariaDB. Los parámetros por defecto son:
 
 - **JDBC_DATABASE_URL:** `jdbc:mariadb://localhost:3306/ktor_db`
 - **DB_USER:** `root`
 - **DB_PASSWORD:** `password`
 
-En el archivo `DatabaseFactory.kt` se utiliza la función `createMissingTablesAndColumns` para asegurarse de que, al iniciar la aplicación, se creen únicamente las tablas o columnas que aún no existan, de modo que los datos previos se conserven.
+En `DatabaseFactory.kt` se usa la función `createMissingTablesAndColumns` para crear las tablas que no existan (incluyendo la nueva tabla `sessions`), conservando los datos existentes al reiniciar la aplicación.
 
-Si deseas levantar contenedores, puedes usar el siguiente `docker-compose.yml` (modifícalo según tus necesidades):
+Si deseas levantar contenedores, puedes usar el siguiente `docker-compose.yml` (ajusta según tus necesidades):
 
 ```yaml
 version: "3.8"
@@ -155,8 +190,23 @@ services:
     "password": "miPasswordSecreta"
   }
   ```
+  **Funcionamiento:**
+    - Se elimina cualquier sesión anterior para ese usuario.
+    - Se crea una nueva sesión y se genera un token JWT (con claims `"email"` y `"sessionId"`).
+    - Se guarda el token en la tabla `sessions` y se devuelve en la respuesta:
+      ```json
+      { "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..." }
+      ```
 
-### Gestión de Usuarios
+- **Logout:**  
+  `POST /auth/logout`  
+  **Headers:**
+    - `Authorization: Bearer <token>`
+      **Funcionamiento:**
+    - Se elimina la sesión asociada al token recibido.
+    - La respuesta debe indicar que la sesión se cerró (por ejemplo, "Sesión cerrada").
+
+### Gestión de Usuarios (Proteger con JWT)
 - **Listar Usuarios:**  
   `GET /users`  
   **Respuesta esperada:**
@@ -190,7 +240,7 @@ services:
 - **Eliminar Usuario:**  
   `DELETE /users/{id}`
 
-### Gestión de Ítems (Cards)
+### Gestión de Ítems (Cards) (Proteger con JWT)
 - **Crear Ítem:**  
   `POST /items`  
   **Body:**
@@ -228,11 +278,14 @@ services:
 ## Notas
 
 - **Persistencia:**  
-  Se utiliza `createMissingTablesAndColumns` para que los datos existentes no se pierdan al reiniciar la aplicación.
+  Se utiliza `createMissingTablesAndColumns` en `DatabaseFactory.kt` para que los datos existentes no se pierdan al reiniciar la aplicación.
 
-- **Seguridad:**  
-  Las contraseñas se cifran con BCrypt.  
-  En esta versión la autenticación se realiza de forma básica (registro y login sin tokens).
+- **JWT y Sesiones:**
+    - Cada login genera un token JWT único que se almacena en una tabla de sesiones junto con el ID del usuario.
+    - Antes de crear una nueva sesión, se eliminan las sesiones previas del usuario para garantizar que solo haya un token activo.
+    - Todos los endpoints protegidos verifican que el token enviado en la cabecera coincide con el token almacenado en la sesión en la base de datos.
+    - Si se modifica el token en la base de datos (por ejemplo, a través de phpMyAdmin), la validación fallará y el acceso será denegado.
+    - El endpoint de logout elimina la sesión activa asociada al token, invalidándolo.
 
 - **Clean Architecture:**  
-  El código se organiza en capas (dominio, datos y presentación) para facilitar el mantenimiento y la escalabilidad.
+  El proyecto está organizado en capas (dominio, datos y presentación) para facilitar el mantenimiento y la escalabilidad.

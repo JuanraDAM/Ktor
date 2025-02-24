@@ -8,4 +8,5 @@ interface UserRepository {
     suspend fun getUsers(): List<User>
     suspend fun updateUser(id: Int, user: User): Boolean
     suspend fun deleteUser(id: Int): Boolean
+    suspend fun getUserByEmail(email: String): User?
 }

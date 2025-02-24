@@ -1,4 +1,10 @@
 package com.example.domain.models
 
-class Session {
-}
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class Session(
+    val id: Int,
+    val userId: Int,
+    val token: String
+)

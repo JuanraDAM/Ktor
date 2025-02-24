@@ -3,16 +3,13 @@ package com.example.data.repositories
 import com.example.domain.models.User
 import com.example.domain.repositories.UserRepository
 import com.example.data.db.UsersTable
-import org.jetbrains.exposed.sql.insertAndGetId
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.mindrot.jbcrypt.BCrypt
 
 class UserRepositoryImpl : UserRepository {
+
     override suspend fun registerUser(user: User): Int? = transaction {
         val exists = UsersTable.select { UsersTable.email eq user.email }.firstOrNull()
         if (exists != null) {
@@ -27,21 +24,15 @@ class UserRepositoryImpl : UserRepository {
     }
 
     override suspend fun loginUser(email: String, password: String): User? = transaction {
-        val userRow = UsersTable.select { UsersTable.email eq email }.firstOrNull()
-        if (userRow != null) {
-            val storedHashedPassword = userRow[UsersTable.password]
-            if (BCrypt.checkpw(password, storedHashedPassword)) {
-                User(
-                    id = userRow[UsersTable.id].value,
-                    email = userRow[UsersTable.email],
-                    password = storedHashedPassword
-                )
-            } else {
-                null
-            }
-        } else {
-            null
-        }
+        val row = UsersTable.select { UsersTable.email eq email }.firstOrNull() ?: return@transaction null
+        val storedHash = row[UsersTable.password]
+        return@transaction if (BCrypt.checkpw(password, storedHash)) {
+            User(
+                id = row[UsersTable.id].value,
+                email = row[UsersTable.email],
+                password = row[UsersTable.password]
+            )
+        } else null
     }
 
     override suspend fun getUsers(): List<User> = transaction {
@@ -55,17 +46,25 @@ class UserRepositoryImpl : UserRepository {
     }
 
     override suspend fun updateUser(id: Int, user: User): Boolean = transaction {
-        val updateCount = UsersTable.update({ UsersTable.id eq id }) { row ->
+        val updated = UsersTable.update({ UsersTable.id eq id }) { row ->
             row[email] = user.email
             if (user.password.isNotEmpty()) {
-                val hashedPassword = BCrypt.hashpw(user.password, BCrypt.gensalt())
-                row[password] = hashedPassword
+                row[password] = BCrypt.hashpw(user.password, BCrypt.gensalt())
             }
         }
-        updateCount > 0
+        updated > 0
     }
 
     override suspend fun deleteUser(id: Int): Boolean = transaction {
         UsersTable.deleteWhere { UsersTable.id eq id } > 0
+    }
+
+    override suspend fun getUserByEmail(email: String): User? = transaction {
+        val row = UsersTable.select { UsersTable.email eq email }.firstOrNull() ?: return@transaction null
+        User(
+            id = row[UsersTable.id].value,
+            email = row[UsersTable.email],
+            password = row[UsersTable.password]
+        )
     }
 }

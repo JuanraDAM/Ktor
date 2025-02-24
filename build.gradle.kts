@@ -34,4 +34,8 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:1.8.0")
     // BCrypt
     implementation("org.mindrot:jbcrypt:0.4")
+    //Ktor Authentication y JWT
+    implementation("io.ktor:ktor-server-auth:2.3.0")
+    implementation("io.ktor:ktor-server-auth-jwt:2.3.0")
+    implementation("com.auth0:java-jwt:3.18.2")
 }

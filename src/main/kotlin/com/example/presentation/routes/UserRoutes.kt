@@ -23,13 +23,13 @@ fun Route.userRoutes(
     getUsersUseCase: GetUsersUseCase
 ) {
     route("/users") {
-        // Endpoint para listar usuarios
+        // Listar usuarios
         get {
             val users = getUsersUseCase.invoke()
             call.respond(UsersResponse(users))
         }
 
-        // Endpoint para actualizar usuario
+        // Actualizar usuario
         put("{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
@@ -37,7 +37,7 @@ fun Route.userRoutes(
                 return@put
             }
             val request = call.receive<UpdateUserRequest>()
-            // Se asume que el use case se encarga de cifrar la contraseña si es necesario
+            // Se asume que en el use case se cifra la contraseña si se envía
             val updated = updateUserUseCase.invoke(id, User(0, request.email, request.password))
             if (updated) {
                 call.respond(HttpStatusCode.OK, "Usuario actualizado")
@@ -46,7 +46,7 @@ fun Route.userRoutes(
             }
         }
 
-        // Endpoint para eliminar usuario
+        // Eliminar usuario
         delete("{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {

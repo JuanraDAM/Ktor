@@ -4,7 +4,7 @@ import io.ktor.server.routing.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import io.ktor.http.HttpStatusCode
 import com.example.domain.models.Item
 import com.example.domain.repositories.ItemRepository
 import com.example.domain.usecases.CreateItemUseCase
@@ -12,7 +12,6 @@ import com.example.domain.usecases.GetItemsUseCase
 import com.example.domain.usecases.UpdateItemUseCase
 import com.example.domain.usecases.DeleteItemUseCase
 import kotlinx.serialization.Serializable
-import io.ktor.http.HttpStatusCode
 
 @Serializable
 data class CreateItemRequest(val title: String, val description: String?, val weight: Int, val image: String, val userId: Int)
@@ -30,29 +29,19 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
     val deleteItemUseCase = DeleteItemUseCase(itemRepository)
 
     route("/items") {
-        // Crear ítem
         post {
             val request = call.receive<CreateItemRequest>()
             val itemId = createItemUseCase.invoke(
-                Item(
-                    id = 0,
-                    title = request.title,
-                    description = request.description,
-                    weight = request.weight,
-                    image = request.image,
-                    userId = request.userId
-                )
+                Item(0, request.title, request.description, request.weight, request.image, request.userId)
             )
             call.respond(HttpStatusCode.Created, "Ítem creado con id: $itemId")
         }
 
-        // Obtener todos los ítems
         get {
             val items = getItemsUseCase.invoke()
             call.respond(ItemsResponse(items))
         }
 
-        // Obtener un ítem por id
         get("{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
@@ -67,7 +56,6 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
             }
         }
 
-        // Actualizar un ítem
         put("{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
@@ -94,7 +82,6 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
             }
         }
 
-        // Eliminar un ítem
         delete("{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             if (id == null) {
