@@ -1,0 +1,16 @@
+ktor:
+    deployment:
+        host: "0.0.0.0"
+        port: 8080
+    application:
+        modules:
+            - com.example.ApplicationKt.module
+
+database:
+    jdbcUrl: "jdbc:mariadb://localhost:3306/ktor_db"
+    driverClassName: "org.mariadb.jdbc.Driver"
+    username: "root"
+    password: "password"
+    maximumPoolSize: 3
+    autoCommit: false
+    transactionIsolation: "TRANSACTION_REPEATABLE_READ"
