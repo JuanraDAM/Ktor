@@ -10,6 +10,7 @@ import com.example.domain.repositories.UserRepository
 import com.example.domain.repositories.SessionRepository
 import com.example.domain.usecases.RegisterUserUseCase
 import com.example.domain.usecases.LoginUserUseCase
+import com.example.domain.usecases.UpdateUserUseCase
 import kotlinx.serialization.Serializable
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -20,11 +21,19 @@ import java.util.Date
 data class RegisterRequest(val email: String, val password: String)
 
 @Serializable
+data class LoginResponse(val token: String, val userId: Int)
+
+@Serializable
 data class LoginRequest(val email: String, val password: String)
+
+// Nuevo request para recuperación de contraseña
+@Serializable
+data class RecoverPasswordRequest(val email: String, val newPassword: String)
 
 fun Route.authRoutes(
     userRepository: UserRepository,
-    sessionRepository: SessionRepository
+    sessionRepository: SessionRepository,
+    updateUserUseCase: UpdateUserUseCase
 ) {
     val registerUserUseCase = RegisterUserUseCase(userRepository)
     val loginUserUseCase = LoginUserUseCase(userRepository)
@@ -45,28 +54,48 @@ fun Route.authRoutes(
             val user = loginUserUseCase.invoke(request.email, request.password)
             if (user == null) {
                 call.respond(HttpStatusCode.Unauthorized, "Credenciales inválidas")
+                return@post
+            }
+            // Elimina sesiones anteriores para este usuario
+            sessionRepository.deleteSessionsByUserId(user.id)
+
+            // Inserta una sesión temporal con token vacío para obtener el ID de sesión
+            val tempSession = sessionRepository.createSession(user.id, "")
+
+            // Genera el token JWT incluyendo el ID de sesión
+            val token = JWT.create()
+                .withClaim("email", user.email)
+                .withClaim("sessionId", tempSession.id)
+                .withExpiresAt(Date(System.currentTimeMillis() + 10 * 60 * 1000))
+                .sign(Algorithm.HMAC256("secret"))
+
+            // Actualiza la sesión con el token generado
+            sessionRepository.updateSessionToken(tempSession.id, token)
+
+            // Devuelve el token y el userId en la respuesta
+            call.respond(HttpStatusCode.OK, LoginResponse(token, user.id))
+
+        }
+
+
+        // Nuevo endpoint para recuperar (actualizar) la contraseña sin token
+        post("/recover") {
+            val request = call.receive<RecoverPasswordRequest>()
+            val user = userRepository.getUserByEmail(request.email)
+            if (user == null) {
+                call.respond(HttpStatusCode.NotFound, "Usuario no encontrado")
             } else {
-                // Elimina sesiones anteriores para este usuario
-                sessionRepository.deleteSessionsByUserId(user.id)
-
-                // Generar token JWT con claim "email" y "sessionId"
-                // Se crea primero una sesión temporal
-                val tempSession = sessionRepository.createSession(user.id, "")
-                val token = JWT.create()
-                    .withClaim("email", user.email)
-                    .withClaim("sessionId", tempSession.id)
-                    .withExpiresAt(Date(System.currentTimeMillis() + 10 * 60 * 1000)) // 10 minutos de expiración
-                    .sign(Algorithm.HMAC256("secret"))
-
-                // Actualizar la sesión con el token generado
-                sessionRepository.updateSessionToken(tempSession.id, token)
-
-                // Responder con el token
-                call.respond(HttpStatusCode.OK, mapOf("token" to token))
+                // Actualiza la contraseña creando un nuevo objeto User con el nuevo password
+                val updated = updateUserUseCase.invoke(user.id, User(user.id, user.email, request.newPassword))
+                if (updated) {
+                    call.respond(HttpStatusCode.OK, "Contraseña actualizada")
+                } else {
+                    call.respond(HttpStatusCode.InternalServerError, "Error al actualizar la contraseña")
+                }
             }
         }
 
-        // Logout: Eliminar la sesión actual (requiere autenticación)
+        // Logout: requiere autenticación
         authenticate("auth-jwt") {
             post("/logout") {
                 val authHeader = call.request.headers["Authorization"] ?: ""

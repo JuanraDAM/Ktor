@@ -63,8 +63,8 @@ fun main() {
         }
 
         routing {
-            // Rutas públicas: registro, login, logout
-            authRoutes(userRepository, sessionRepository)
+            // Rutas públicas: registro, login, logout y recuperación de contraseña
+            authRoutes(userRepository, sessionRepository, updateUserUseCase)
             // Rutas protegidas
             authenticate("auth-jwt") {
                 userRoutes(updateUserUseCase, deleteUserUseCase, getUsersUseCase)

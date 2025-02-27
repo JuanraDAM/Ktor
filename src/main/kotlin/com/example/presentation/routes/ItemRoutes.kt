@@ -30,11 +30,13 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
 
     route("/items") {
         post {
-            val request = call.receive<CreateItemRequest>()
-            val itemId = createItemUseCase.invoke(
-                Item(0, request.title, request.description, request.weight, request.image, request.userId)
-            )
-            call.respond(HttpStatusCode.Created, "Ítem creado con id: $itemId")
+            try {
+                val request = call.receive<CreateItemRequest>()
+                val newItem: Item = createItemUseCase.invoke(request)
+                call.respond(HttpStatusCode.Created, newItem)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, "Error al crear ítem: ${e.message}")
+            }
         }
 
         get {

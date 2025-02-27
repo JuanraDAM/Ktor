@@ -46,6 +46,8 @@ fun Route.userRoutes(
             }
         }
 
+
+
         // Eliminar usuario
         delete("{id}") {
             val id = call.parameters["id"]?.toIntOrNull()

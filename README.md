@@ -116,7 +116,6 @@ dependencies {
     implementation("io.ktor:ktor-server-auth-jwt:2.3.0")
     implementation("com.auth0:java-jwt:3.18.2")
 }
-
 ```
 
 ## Configuración de la Base de Datos
@@ -195,7 +194,10 @@ services:
     - Se crea una nueva sesión y se genera un token JWT (con claims `"email"` y `"sessionId"`).
     - Se guarda el token en la tabla `sessions` y se devuelve en la respuesta:
       ```json
-      { "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..." }
+      {
+        "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+        "userId": 1
+      }
       ```
 
 - **Logout:**  

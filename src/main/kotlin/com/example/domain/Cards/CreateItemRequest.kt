@@ -1,10 +1,9 @@
-package com.example.domain.models
+package com.example.domain.cards.requests
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Item(
-    val id: Int,
+data class CreateItemRequest(
     val title: String,
     val description: String? = null,
     val weight: Int,
