@@ -17,24 +17,25 @@ import org.jetbrains.exposed.sql.transactions.transaction
 class ItemRepositoryImpl : ItemRepository {
 
     override suspend fun createItem(request: CreateItemRequest): Item = transaction {
-        // Inserta el nuevo ítem en la base de datos y obtiene el ID generado
         val generatedId = ItemsTable.insertAndGetId { row ->
             row[title] = request.title
             row[description] = request.description
             row[weight] = request.weight
             row[image] = request.image
-            // Usa la tabla de usuarios para construir el EntityID
+            row[latitude] = request.latitude
+            row[longitude] = request.longitude
             row[userId] = EntityID(request.userId, UsersTable)
         }.value
 
-        // Devuelve el ítem creado con el ID persistido
         Item(
             id = generatedId,
             title = request.title,
             description = request.description,
             weight = request.weight,
             image = request.image,
-            userId = request.userId
+            userId = request.userId,
+            latitude = request.latitude,
+            longitude = request.longitude
         )
     }
 
@@ -46,7 +47,9 @@ class ItemRepositoryImpl : ItemRepository {
                 description = it[ItemsTable.description],
                 weight = it[ItemsTable.weight],
                 image = it[ItemsTable.image],
-                userId = it[ItemsTable.userId].value
+                userId = it[ItemsTable.userId].value,
+                latitude = it[ItemsTable.latitude],
+                longitude = it[ItemsTable.longitude]
             )
         }
     }
@@ -60,7 +63,9 @@ class ItemRepositoryImpl : ItemRepository {
                     description = it[ItemsTable.description],
                     weight = it[ItemsTable.weight],
                     image = it[ItemsTable.image],
-                    userId = it[ItemsTable.userId].value
+                    userId = it[ItemsTable.userId].value,
+                    latitude = it[ItemsTable.latitude],
+                    longitude = it[ItemsTable.longitude]
                 )
             }
             .singleOrNull()
@@ -72,6 +77,8 @@ class ItemRepositoryImpl : ItemRepository {
             row[description] = item.description
             row[weight] = item.weight
             row[image] = item.image
+            row[latitude] = item.latitude
+            row[longitude] = item.longitude
             row[userId] = EntityID(item.userId, UsersTable)
         } > 0
     }

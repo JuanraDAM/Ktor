@@ -1,15 +1,13 @@
-package com.example.domain.models
+package com.example.domain.Cards
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Item(
-    val id: Int,
-    val title: String,
+data class UpdateItemRequest(
+    val title: String? = null,
     val description: String? = null,
-    val weight: Int,
-    val image: String,
-    val userId: Int,
+    val weight: Int? = null,
+    val image: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null
 )

@@ -14,10 +14,27 @@ import com.example.domain.usecases.DeleteItemUseCase
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class CreateItemRequest(val title: String, val description: String?, val weight: Int, val image: String, val userId: Int)
+data class CreateItemRequest(
+    val title: String,
+    val description: String?,
+    val weight: Int,
+    val image: String,
+    val userId: Int,
+    // Se agregan estos nuevos campos:
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
 
 @Serializable
-data class UpdateItemRequest(val title: String?, val description: String?, val weight: Int?, val image: String?)
+data class UpdateItemRequest(
+    val title: String? = null,
+    val description: String? = null,
+    val weight: Int? = null,
+    val image: String? = null,
+    // Agrega también estos campos opcionales:
+    val latitude: Double? = null,
+    val longitude: Double? = null
+)
 
 @Serializable
 data class ItemsResponse(val items: List<Item>)
@@ -74,7 +91,9 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
                 title = request.title ?: existingItem.title,
                 description = request.description ?: existingItem.description,
                 weight = request.weight ?: existingItem.weight,
-                image = request.image ?: existingItem.image
+                image = request.image ?: existingItem.image,
+                latitude = request.latitude ?: existingItem.latitude,
+                longitude = request.longitude ?: existingItem.longitude
             )
             val updated = updateItemUseCase.invoke(id, updatedItem)
             if (updated) {
