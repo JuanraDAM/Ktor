@@ -1,7 +1,6 @@
-
 # Proyecto Ktor Sample
 
-Este proyecto es un ejemplo de una API REST implementada en Kotlin utilizando Ktor, Exposed y MariaDB, siguiendo principios de Clean Architecture. La aplicación permite la gestión de usuarios y de ítems (cards) y ahora incorpora autenticación basada en JWT con gestión de sesiones. Cada vez que un usuario inicia sesión se genera un token único (JWT) que se almacena en una tabla de sesiones; este token se verifica en cada endpoint protegido y se invalida en caso de logout o cuando se produce un nuevo login.
+Este proyecto es un ejemplo de una API REST implementada en Kotlin utilizando Ktor, Exposed y MariaDB, siguiendo principios de Clean Architecture. La aplicación permite la gestión de usuarios e ítems (cards) e incorpora autenticación basada en JWT con gestión de sesiones. Cada vez que un usuario inicia sesión se genera un token único (JWT) que se almacena en la tabla de sesiones; este token se valida en cada endpoint protegido y se invalida en caso de logout o cuando se produce un nuevo login.
 
 ---
 
@@ -23,11 +22,15 @@ Este proyecto es un ejemplo de una API REST implementada en Kotlin utilizando Kt
   Permite crear, listar, obtener, actualizar y eliminar ítems.
 - **Propiedades del ítem:**  
   Cada ítem (card) incluye:
-    - **Título**
-    - **Descripción** (opcional)
-    - **Peso**
-    - **Imagen:** codificada en Base64.
-    - **Ubicación:** se almacenan las coordenadas (latitud y longitud) extraídas de la imagen, si están disponibles.
+  - **Título**
+  - **Descripción** (opcional)
+  - **Peso**
+  - **Imagen:**  
+    Ahora la API recibe la imagen codificada en Base64, la decodifica y guarda el fichero físicamente en el servidor. Se almacena en la base de datos la ruta (URL) del fichero en lugar de la cadena Base64 original. Además, las imágenes se organizan en carpetas específicas por usuario, por ejemplo, en `uploads/images/{userId}`.
+  - **Ubicación:**  
+    Se almacenan las coordenadas (latitud y longitud) que pueden extraerse de la imagen (por ejemplo, datos EXIF) o enviarse explícitamente.
+
+  En las operaciones de actualización, si se envía una nueva imagen, la API elimina el fichero antiguo y guarda el nuevo. Al eliminar un ítem, se borra el fichero físico y, si el directorio del usuario queda vacío, se elimina también.
 
 ### Persistencia en MariaDB
 - **Exposed y HikariCP:**  
@@ -35,9 +38,9 @@ Este proyecto es un ejemplo de una API REST implementada en Kotlin utilizando Kt
 - **Creación/actualización de tablas:**  
   La función `createMissingTablesAndColumns` en `DatabaseFactory.kt` asegura que se creen o actualicen las tablas sin perder datos existentes.  
   Las tablas incluyen:
-    - **UsersTable:** Para los usuarios.
-    - **ItemsTable:** Para los ítems (cards), que ahora incluye columnas para `latitude` y `longitude`.
-    - **SessionsTable:** Para gestionar las sesiones de usuario y los tokens JWT.
+  - **UsersTable:** Para los usuarios.
+  - **ItemsTable:** Para los ítems (cards), que ahora incluye columnas para `latitude` y `longitude`.
+  - **SessionsTable:** Para gestionar las sesiones de usuario y los tokens JWT.
 
 ### Arquitectura Clean
 - **Capa de Dominio:**  
@@ -45,76 +48,75 @@ Este proyecto es un ejemplo de una API REST implementada en Kotlin utilizando Kt
 - **Capa de Datos:**  
   Implementa los repositorios y define las tablas de la base de datos.
 - **Capa de Presentación:**  
-  Contiene las rutas de Ktor que exponen los endpoints, integrando la validación de JWT para proteger los endpoints sensibles.
+  Define los endpoints de Ktor que exponen la API, integrando la validación de JWT para proteger los endpoints sensibles.
+- **Utilidades:**  
+  Se ha añadido la carpeta `utils` que contiene el fichero `FileUtil.kt`, responsable del procesamiento de imágenes: decodificar Base64, guardar ficheros en disco organizados por usuario y gestionar la eliminación de imágenes (y directorios vacíos).
 
 ---
 
 ## Estructura del Proyecto
 
 ```plaintext
-mi-proyecto/
-├── build.gradle.kts                # Configuración del proyecto con Gradle
-├── docker-compose.yml              # (Opcional) Configuración para levantar contenedores (MariaDB y phpMyAdmin)
-└── src
-    └── main
-        └── kotlin
-            └── com
-                └── example
-                    ├── Application.kt                # Punto de entrada y configuración JWT
-                    ├── data
-                    │   ├── db
-                    │   │   ├── DatabaseFactory.kt      # Configuración de la base de datos
-                    │   │   ├── UsersTable.kt           # Definición de la tabla de usuarios
-                    │   │   ├── ItemsTable.kt           # Definición de la tabla de ítems (incluye latitude y longitude)
-                    │   │   └── SessionsTable.kt        # Definición de la tabla de sesiones
-                    │   └── repositories
-                    │       ├── UserRepositoryImpl.kt     # Implementación del repositorio de usuarios
-                    │       ├── ItemRepositoryImpl.kt     # Implementación del repositorio de ítems
-                    │       └── SessionRepositoryImpl.kt  # Implementación del repositorio de sesiones
-                    ├── domain
-                    │   ├── models
-                    │   │   ├── User.kt                 # Modelo de usuario
-                    │   │   ├── Item.kt                 # Modelo de ítem
-                    │   │   └── Session.kt              # Modelo de sesión
-                    │   ├── repositories
-                    │   │   ├── UserRepository.kt       # Interfaz del repositorio de usuarios
-                    │   │   ├── ItemRepository.kt       # Interfaz del repositorio de ítems
-                    │   │   └── SessionRepository.kt    # Interfaz del repositorio de sesiones
-                    │   └── usecases
-                    │       ├── RegisterUserUseCase.kt  # Caso de uso para registrar usuarios
-                    │       ├── LoginUserUseCase.kt     # Caso de uso para iniciar sesión
-                    │       ├── GetUsersUseCase.kt      # Caso de uso para listar usuarios
-                    │       ├── UpdateUserUseCase.kt    # Caso de uso para actualizar usuarios
-                    │       ├── DeleteUserUseCase.kt    # Caso de uso para eliminar usuarios
-                    │       ├── CreateItemUseCase.kt    # Caso de uso para crear ítems
-                    │       ├── GetItemsUseCase.kt      # Caso de uso para listar ítems
-                    │       ├── UpdateItemUseCase.kt    # Caso de uso para actualizar ítems
-                    │       └── DeleteItemUseCase.kt    # Caso de uso para eliminar ítems
-                    └── presentation
-                        └── routes
-                            ├── AuthRoutes.kt         # Endpoints de autenticación (registro, login, logout)
-                            ├── UserRoutes.kt         # Endpoints para la gestión de usuarios
-                            └── ItemRoutes.kt         # Endpoints para el CRUD de ítems (cards)
+example/
+├── Application.kt
+├── data
+│   ├── db
+│   │   ├── DatabaseFactory.kt
+│   │   ├── ItemsTable.kt
+│   │   ├── SessionsTable.kt
+│   │   └── UsersTable.kt
+│   └── repositories
+│       ├── ItemRepositoryImpl.kt
+│       ├── SessionRepositoryImpl.kt
+│       └── UserRepositoryImpl.kt
+├── domain
+│   ├── Cards
+│   │   ├── CreateItemRequest.kt
+│   │   └── UpdateItemRequest.kt
+│   ├── models
+│   │   ├── Item.kt
+│   │   ├── Session.kt
+│   │   └── User.kt
+│   ├── repositories
+│   │   ├── ItemRepository.kt
+│   │   ├── SessionRepository.kt
+│   │   └── UserRepository.kt
+│   └── usecases
+│       ├── CreateItemUseCase.kt
+│       ├── DeleteItemUseCase.kt
+│       ├── DeleteUserUseCase.kt
+│       ├── GetItemsUseCase.kt
+│       ├── GetUsersUseCase.kt
+│       ├── LoginUserUseCase.kt
+│       ├── RegisterUserUseCase.kt
+│       ├── UpdateItemUseCase.kt
+│       └── UpdateUserUseCase.kt
+├── presentation
+│   └── routes
+│       ├── AuthRoutes.kt
+│       ├── ItemRoutes.kt
+│       └── UserRoutes.kt
+└── utils
+    └── FileUtil.kt
 ```
 
 ### Descripción de Directorios
 
 - **data:**  
-  Acceso a datos y definición de las tablas en la base de datos.
-    - **db:** Configura la conexión (DatabaseFactory.kt) y define las tablas (UsersTable, ItemsTable y SessionsTable).
-    - **repositories:** Implementa las interfaces de repositorios del dominio.
-
+  Acceso a datos y definición de las tablas en la base de datos:
+  - **db:** Configura la conexión (DatabaseFactory.kt) y define las tablas (UsersTable, ItemsTable y SessionsTable).
+  - **repositories:** Implementa las interfaces definidas en la capa de dominio.
 - **domain:**  
-  Núcleo de la lógica de negocio.
-    - **models:** Define las entidades (User, Item, Session).  
-      *Nota: El modelo Item ahora incluye los campos `latitude` y `longitude`.*
-    - **repositories:** Declara las interfaces para acceder a los datos.
-    - **usecases:** Encapsula las operaciones de negocio (registro, login, CRUD de ítems, etc.).  
-      *Nota: Los casos de uso para ítems ahora gestionan las coordenadas.*
-
+  Núcleo de la lógica de negocio:
+  - **models:** Define las entidades (User, Item, Session).  
+    *Nota: El modelo Item ahora incluye `latitude` y `longitude`.*
+  - **repositories:** Declara las interfaces para acceder a los datos.
+  - **usecases:** Encapsula las operaciones de negocio, incluyendo el procesamiento de imágenes en ítems.
 - **presentation:**  
   Define los endpoints de la API utilizando Ktor.
-    - **routes:** Contiene las rutas para autenticación, gestión de usuarios e ítems.
+  - **routes:** Contiene las rutas para autenticación, gestión de usuarios e ítems.
+- **utils:**  
+  Contiene utilidades generales, incluyendo `FileUtil.kt`, que gestiona la decodificación de imágenes Base64, almacenamiento en disco en carpetas por usuario y eliminación de ficheros y directorios vacíos.
 
 ---
 
@@ -151,7 +153,7 @@ mi-proyecto/
 - **Logout:**  
   `POST /auth/logout`  
   **Headers:**
-    - `Authorization: Bearer <token>`
+  - `Authorization: Bearer <token>`
 
 ### Gestión de Usuarios
 - **Listar Usuarios:**  
@@ -179,13 +181,13 @@ mi-proyecto/
     "title": "Título de la Card",
     "description": "Descripción de la card",
     "weight": 10,
-    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",  
     "userId": 1,
     "latitude": 37.77950668334961,
     "longitude": -3.754349946975708
   }
   ```
-
+  *Nota:* Se espera que el campo `image` contenga la cadena Base64 de la imagen. Se recomienda enviar únicamente la cadena Base64 (puedes incluir el prefijo `data:image/png;base64,` si lo deseas, pero la lógica actual guarda la imagen con extensión `.png`).
 - **Listar Ítems:**  
   `GET /items`
 
@@ -200,14 +202,16 @@ mi-proyecto/
     "title": "Título actualizado",
     "description": "Nueva descripción",
     "weight": 12,
-    "image": "data:image/png;base64,AAA...",
+    "image": "data:image/png;base64,AAA...",  
     "latitude": 37.77950668334961,
     "longitude": -3.754349946975708
   }
   ```
+  *Si se envía un nuevo valor para `image`, la API elimina el fichero antiguo y guarda el nuevo, actualizando la ruta en la base de datos.*
 
 - **Eliminar Ítem:**  
-  `DELETE /items/{id}`
+  `DELETE /items/{id}`  
+  *La API elimina el registro, borra el fichero físico y, si el directorio del usuario queda vacío, se elimina también.*
 
 ---
 
@@ -215,17 +219,17 @@ mi-proyecto/
 
 - **Conexión:**  
   Se utiliza Exposed junto con HikariCP para conectarse a MariaDB.  
-  Los parámetros por defecto son:
-    - **JDBC_DATABASE_URL:** `jdbc:mariadb://localhost:3306/ktor_db`
-    - **DB_USER:** `root`
-    - **DB_PASSWORD:** `password`
+  Parámetros por defecto:
+  - **JDBC_DATABASE_URL:** `jdbc:mariadb://localhost:3306/ktor_db`
+  - **DB_USER:** `root`
+  - **DB_PASSWORD:** `password`
 
 - **Creación/Actualización de Tablas:**  
-  La función `createMissingTablesAndColumns` en `DatabaseFactory.kt` se encarga de crear o actualizar las tablas sin perder los datos existentes.  
+  La función `createMissingTablesAndColumns` en `DatabaseFactory.kt` se encarga de crear o actualizar las tablas sin perder datos.  
   Las tablas incluyen:
-    - **UsersTable:** Para usuarios.
-    - **ItemsTable:** Para ítems (cards), que ahora contiene columnas para `latitude` y `longitude`.
-    - **SessionsTable:** Para gestionar las sesiones y tokens JWT.
+  - **UsersTable:** Para usuarios.
+  - **ItemsTable:** Para ítems (cards), que ahora incluye `latitude` y `longitude`.
+  - **SessionsTable:** Para gestionar sesiones y tokens JWT.
 
 ---
 
@@ -288,42 +292,49 @@ services:
 ## Cómo Ejecutar el Proyecto
 
 1. **Base de Datos:**
-    - Si utilizas Docker, ejecuta:
-      ```bash
-      docker-compose up -d
-      ```
-    - Verifica que la base de datos y las tablas se hayan creado (puedes acceder a phpMyAdmin en [http://localhost:8081](http://localhost:8081)).
+  - Si usas Docker, ejecuta:
+    ```bash
+    docker-compose up -d
+    ```
+  - Verifica la base de datos y las tablas (puedes acceder a phpMyAdmin en [http://localhost:8081](http://localhost:8081)).
 
 2. **Ejecutar la API:**
-    - Compila y ejecuta el proyecto con Gradle:
-      ```bash
-      ./gradlew run
-      ```
-    - La aplicación se iniciará en el puerto **8080**.
+  - Compila y ejecuta el proyecto con Gradle:
+    ```bash
+    ./gradlew run
+    ```
+  - La aplicación se iniciará en el puerto **8080**.
 
 ---
 
-## Endpoints de la API – Resumen y Pruebas
+## Endpoints – Resumen y Pruebas
 
 - **Autenticación:**  
-  Permite registrar, iniciar sesión y cerrar sesión.
+  Registro, login y logout.
 - **Gestión de Usuarios:**  
-  Incluye endpoints para listar, actualizar y eliminar usuarios.
+  Listar, actualizar y eliminar usuarios.
 - **Gestión de Ítems (Cards):**  
-  Los endpoints de ítems permiten crear, listar, obtener, actualizar y eliminar ítems.  
-  *Nota:* Los ítems ahora incluyen campos para `latitude` y `longitude` que se almacenan si la imagen contiene datos EXIF o se envían explícitamente.
+  Los endpoints permiten crear, listar, obtener, actualizar y eliminar ítems.  
+  *Nota:* Los ítems ahora incluyen `latitude` y `longitude` y gestionan el almacenamiento físico de imágenes (Base64 → fichero), organizándolas por usuario. Al actualizar o eliminar ítems se eliminan los ficheros antiguos y, si es necesario, el directorio del usuario.
 
-Para probar la API, puedes usar herramientas como Postman, asegurándote de que los cuerpos de las peticiones incluyan las coordenadas en los ítems cuando sea pertinente.
+Puedes probar la API con Postman u otra herramienta, asegurándote de enviar cadenas Base64 válidas en el campo `image`.
 
 ---
 
 ## Notas Finales
 
 - **JWT y Sesiones:**
-    - Cada login genera un token JWT único que se almacena en la tabla `sessions` junto con el `userId`.
-    - Se eliminan las sesiones previas del usuario antes de generar un nuevo token.
-    - Los endpoints protegidos validan el token enviado en la cabecera para asegurar el acceso.
+  - Cada login genera un token JWT único almacenado en la tabla `sessions` junto con el `userId`.
+  - Se eliminan sesiones previas antes de generar un nuevo token.
+  - Los endpoints protegidos validan el token enviado en la cabecera.
+
+- **Manejo de Imágenes:**
+  - La API decodifica la imagen en Base64 y guarda el fichero en `uploads/images/{userId}`.
+  - La base de datos almacena la ruta del fichero en lugar de la cadena Base64.
+  - Al actualizar un ítem, se elimina la imagen antigua; al eliminar un ítem, se elimina el fichero y, si el directorio queda vacío, se limpia.
+  - Actualmente se utiliza la extensión `.png` para todas las imágenes, aunque la lógica puede ampliarse para detectar el tipo de imagen.
 
 - **Clean Architecture:**
-    - La estructura en capas (dominio, datos, presentación) facilita el mantenimiento y la escalabilidad.
-    - Los modelos y requests en la capa de dominio se han actualizado para incluir `latitude` y `longitude`.
+  - La estructura en capas (dominio, datos, presentación y utilidades) facilita el mantenimiento y la escalabilidad.
+  - Los modelos y casos de uso se han actualizado para incluir la gestión de coordenadas y la lógica de manejo de imágenes.
+

@@ -11,6 +11,8 @@ import com.example.domain.usecases.CreateItemUseCase
 import com.example.domain.usecases.GetItemsUseCase
 import com.example.domain.usecases.UpdateItemUseCase
 import com.example.domain.usecases.DeleteItemUseCase
+import com.example.utils.saveBase64Image
+import com.example.utils.deleteImageAndCleanDirectory
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -20,7 +22,6 @@ data class CreateItemRequest(
     val weight: Int,
     val image: String,
     val userId: Int,
-    // Se agregan estos nuevos campos:
     val latitude: Double? = null,
     val longitude: Double? = null
 )
@@ -31,7 +32,6 @@ data class UpdateItemRequest(
     val description: String? = null,
     val weight: Int? = null,
     val image: String? = null,
-    // Agrega también estos campos opcionales:
     val latitude: Double? = null,
     val longitude: Double? = null
 )
@@ -49,6 +49,7 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
         post {
             try {
                 val request = call.receive<CreateItemRequest>()
+                // Se invoca el use case, que ya se encarga de procesar la imagen en la carpeta del usuario
                 val newItem: Item = createItemUseCase.invoke(request)
                 call.respond(HttpStatusCode.Created, newItem)
             } catch (e: Exception) {
@@ -87,11 +88,21 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
                 call.respond(HttpStatusCode.NotFound, "Ítem no encontrado")
                 return@put
             }
+
+            // Si se envía una nueva imagen en Base64, elimina la anterior y guarda la nueva en la carpeta del usuario
+            val newImagePath = request.image?.let { base64 ->
+                if (existingItem.image.isNotBlank()) {
+                    deleteImageAndCleanDirectory(existingItem.image)
+                }
+                // Usar el userId del ítem existente para determinar la carpeta
+                saveBase64Image(base64, existingItem.userId)
+            }
+
             val updatedItem = existingItem.copy(
                 title = request.title ?: existingItem.title,
                 description = request.description ?: existingItem.description,
                 weight = request.weight ?: existingItem.weight,
-                image = request.image ?: existingItem.image,
+                image = newImagePath ?: existingItem.image,
                 latitude = request.latitude ?: existingItem.latitude,
                 longitude = request.longitude ?: existingItem.longitude
             )
@@ -109,11 +120,22 @@ fun Route.itemRoutes(itemRepository: ItemRepository) {
                 call.respond(HttpStatusCode.BadRequest, "Id de ítem inválido")
                 return@delete
             }
+            val existingItem = itemRepository.getItemById(id)
+            if (existingItem == null) {
+                call.respond(HttpStatusCode.NotFound, "Ítem no encontrado")
+                return@delete
+            }
+
+            // Elimina la imagen física y, si es necesario, limpia el directorio del usuario
+            if (existingItem.image.isNotBlank()) {
+                deleteImageAndCleanDirectory(existingItem.image)
+            }
+
             val deleted = deleteItemUseCase.invoke(id)
             if (deleted) {
                 call.respond(HttpStatusCode.OK, "Ítem eliminado")
             } else {
-                call.respond(HttpStatusCode.NotFound, "Ítem no encontrado")
+                call.respond(HttpStatusCode.InternalServerError, "Error al eliminar el ítem")
             }
         }
     }

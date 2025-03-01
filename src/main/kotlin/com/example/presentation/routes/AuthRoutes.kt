@@ -26,7 +26,6 @@ data class LoginResponse(val token: String, val userId: Int)
 @Serializable
 data class LoginRequest(val email: String, val password: String)
 
-// Nuevo request para recuperación de contraseña
 @Serializable
 data class RecoverPasswordRequest(val email: String, val newPassword: String)
 
@@ -59,10 +58,9 @@ fun Route.authRoutes(
             // Elimina sesiones anteriores para este usuario
             sessionRepository.deleteSessionsByUserId(user.id)
 
-            // Inserta una sesión temporal con token vacío para obtener el ID de sesión
             val tempSession = sessionRepository.createSession(user.id, "")
 
-            // Genera el token JWT incluyendo el ID de sesión
+            // Genera el token JWT
             val token = JWT.create()
                 .withClaim("email", user.email)
                 .withClaim("sessionId", tempSession.id)
@@ -78,7 +76,7 @@ fun Route.authRoutes(
         }
 
 
-        // Nuevo endpoint para recuperar (actualizar) la contraseña sin token
+        // Nuevo endpoint para recuperar (actualizar) la contraseña
         post("/recover") {
             val request = call.receive<RecoverPasswordRequest>()
             val user = userRepository.getUserByEmail(request.email)
