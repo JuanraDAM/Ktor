@@ -14,7 +14,6 @@ object ItemsTable : IntIdTable("items") {
     val weight = integer("weight")
     // La columna "image" se guarda como LONGTEXT para cadenas largas (Base64)
     val image = registerColumn<String>("image", LongTextColumnType())
-    // Nuevas columnas para guardar coordenadas (opcional)
     val latitude = double("latitude").nullable()
     val longitude = double("longitude").nullable()
     val userId = reference("user_id", UsersTable, onDelete = ReferenceOption.CASCADE)
